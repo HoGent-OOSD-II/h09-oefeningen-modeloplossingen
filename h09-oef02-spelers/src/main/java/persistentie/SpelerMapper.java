@@ -110,28 +110,29 @@ public class SpelerMapper {
         return spelers;
     }
 
+    // INPUT: Moet een bestaand bestand in target zijn
     private Path geefInputPad(String bestandsnaam) {
         URL url = SpelerMapper.class.getResource("/bestanden/" + bestandsnaam);
         if (url == null) {
-            exitApplication("Input bestand mist: bestanden/" + bestandsnaam);
+            exitApplication("Bestand niet gevonden: bestanden/" + bestandsnaam);
         }
         try {
             return Path.of(url.toURI());
         } catch (Exception e) {
-            exitApplication("Fout bij laden input: " + bestandsnaam);
-            return null;
+            exitApplication("Kan bestand niet openen: " + bestandsnaam);
+            throw new IllegalStateException(e);
         }
     }
 
-    // OUTPUT: Schrijven naar target (mag nieuw zijn)
+    // OUTPUT: Schrijven naar een bestand in target (mag nieuw zijn)
     private Path geefOutputPad(String bestandsnaam) {
         Path pad = Path.of("target", "classes", "bestanden", bestandsnaam);
         try {
             Files.createDirectories(pad.getParent());
             return pad;
         } catch (IOException e) {
-            exitApplication("Kan output map niet maken: " + bestandsnaam);
-            return null;
+            exitApplication("Kan map niet maken voor: " + bestandsnaam);
+            throw new IllegalStateException(e);
         }
     }
 
