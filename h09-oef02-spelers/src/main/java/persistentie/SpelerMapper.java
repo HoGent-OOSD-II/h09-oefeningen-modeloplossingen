@@ -7,9 +7,11 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -17,7 +19,7 @@ import java.util.stream.Stream;
 public class SpelerMapper {
 
     public void serialiseerObjectPerObject(Collection<Speler> spelerslijst, String naamBestand) {
-        try (ObjectOutputStream output = new ObjectOutputStream(Files.newOutputStream(geefResourcePad(naamBestand)))) {
+        try (ObjectOutputStream output = new ObjectOutputStream(Files.newOutputStream(geefOutputPad(naamBestand), StandardOpenOption.CREATE, StandardOpenOption.WRITE))) {
             for (Speler s : spelerslijst) {
                 output.writeObject(s);
             }
@@ -29,7 +31,7 @@ public class SpelerMapper {
     }
 
     public void serialiseerVolledigeLijst(Collection<Speler> spelerslijst, String naamBestand) {
-        try (ObjectOutputStream output = new ObjectOutputStream(Files.newOutputStream(geefResourcePad(naamBestand)))) {
+        try (ObjectOutputStream output = new ObjectOutputStream(Files.newOutputStream(geefOutputPad(naamBestand), StandardOpenOption.CREATE, StandardOpenOption.WRITE))) {
             output.writeObject(spelerslijst);
         } catch (InvalidPathException ie) {
             exitApplication("Ongeldig pad.");
@@ -41,7 +43,7 @@ public class SpelerMapper {
     public Collection<Speler> deSerialiseerObjectPerObject(String naamBestand) {
         Speler speler = null;
         List<Speler> spelers = new ArrayList<>();
-        try (ObjectInputStream input = new ObjectInputStream(Files.newInputStream(geefResourcePad(naamBestand)))) {
+        try (ObjectInputStream input = new ObjectInputStream(Files.newInputStream(geefInputPad(naamBestand)))) {
             while (true) {
                 speler = (Speler) input.readObject();
                 spelers.add(speler);
@@ -60,7 +62,7 @@ public class SpelerMapper {
 
     public Collection<Speler> deSerialiseerVolledigeLijst(String naamBestand) {
         Collection<Speler> spelers = null;
-        try (ObjectInputStream input = new ObjectInputStream(Files.newInputStream(geefResourcePad(naamBestand)))) {
+        try (ObjectInputStream input = new ObjectInputStream(Files.newInputStream(geefInputPad(naamBestand)))) {
             spelers = (Collection<Speler>) input.readObject();
         } catch (InvalidPathException ie) {
             exitApplication("Ongeldig pad.");
@@ -74,7 +76,7 @@ public class SpelerMapper {
     }
 
     public void schrijfNaarTekstBestand(Collection<Speler> spelerslijst, String naamBestand) {
-        try (Formatter output = new Formatter(Files.newOutputStream(geefResourcePad(naamBestand)))) {
+        try (Formatter output = new Formatter(Files.newOutputStream(geefOutputPad(naamBestand), StandardOpenOption.CREATE, StandardOpenOption.WRITE))) {
             spelerslijst.stream().forEach(s -> {
                 String wapens = Arrays.stream(s.getWapens()).map(w -> w.getSoort()).collect(Collectors.joining("__"));
                 output.format("%s#%s#%s%n", Integer.toString(s.getKracht()), s.getType(), wapens);
@@ -88,7 +90,7 @@ public class SpelerMapper {
 
     public Collection<Speler> leesTekstBestand(String naamBestand) {
         List<Speler> spelers = null;
-        try (Stream<String> lines = Files.lines(geefResourcePad(naamBestand))) {
+        try (Stream<String> lines = Files.lines(geefInputPad(naamBestand))) {
             spelers = lines.map(l -> {
                 String[] data = l.split("#");
                 Wapen[] wapens = Arrays.stream(data[2].split("__")).map(w -> new Wapen(w)).toArray(Wapen[]::new);//
@@ -108,16 +110,27 @@ public class SpelerMapper {
         return spelers;
     }
 
-    private Path geefResourcePad(String bestandsnaam) {
-
+    private Path geefInputPad(String bestandsnaam) {
+        URL url = SpelerMapper.class.getResource("/bestanden/" + bestandsnaam);
+        if (url == null) {
+            exitApplication("Input bestand mist: bestanden/" + bestandsnaam);
+        }
         try {
-            var url = SpelerMapper.class.getResource("/bestanden/" + bestandsnaam);
-            if (url == null) {
-                exitApplication("Bestand niet gevonden: " + bestandsnaam);
-            }
             return Path.of(url.toURI());
         } catch (Exception e) {
-            exitApplication("Fout bij laden bestand: " + bestandsnaam);
+            exitApplication("Fout bij laden input: " + bestandsnaam);
+            return null;
+        }
+    }
+
+    // OUTPUT: Schrijven naar target (mag nieuw zijn)
+    private Path geefOutputPad(String bestandsnaam) {
+        Path pad = Path.of("target", "classes", "bestanden", bestandsnaam);
+        try {
+            Files.createDirectories(pad.getParent());
+            return pad;
+        } catch (IOException e) {
+            exitApplication("Kan output map niet maken: " + bestandsnaam);
             return null;
         }
     }
